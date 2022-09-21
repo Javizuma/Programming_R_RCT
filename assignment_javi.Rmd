@@ -1,0 +1,186 @@
+---
+title: "Introduction_to_R_Assignment"
+author: "Javier Villegas"
+date: "2022-09-08"
+output: html_document
+---
+**R and Tidyverse Assignment**
+
+
+**1**. 
+
+Save the data at this URL: https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt to your computer as a text file. These data are from the supplementary information of a paper by dos Santos et al., published last year in NAR Cancer (PMID: 34316711). The paper examined the relation- ship between gene and transcript expression levels and the prognosis of glioblastoma patients and the data includes expression levels (in units of FPKM) for 50 genes in 144 patients from The Cancer Genome Atlas, as well as survival status (OS) and times (OS.time). Read the data into a data frame in R using the base R function, read.table( ) (Note: the data includes a column headings, so use header=T). What is the class of the object you created?
+
+```{R Assignment- 1 }
+santos_data<-url("https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt")
+santos_data <-data.frame(read.table(santos_data ,header = T))
+ cat('The class of the object we created is', class(santos_data) ) 
+```
+
+
+**2**
+
+Read the the same data directly from the URL provided above, using
+the fread function from the data.table package. What is the class of
+the object you created?
+```{R Assignment - 2}
+library('data.table')
+library('curl')
+santos_ex2<-fread("https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt", header=TRUE)
+cat('The class of the object we created is',class(santos_ex2) )
+```
+
+
+**3**
+
+Read the data from the URL using read_table from the readr package
+(readr is part of the tidyverse). Determine the class of the object.
+```{R Assignment - 3}
+library('tidyverse')
+santos_ex3<-read_table("https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt", col_names  = TRUE, show_col_types= FALSE)
+cat('The class of the object we created is',class(santos_ex3) )
+
+```
+
+**4**
+Use the %in% operator and the colnames( ) function to find out which of the following genes is not included in the data: ”ENSG00000197859”
+,”ENSG00000259336”, ”ENSG00000182566”,”ENSG00000251877"
+
+```{R Assignment- 4}
+library('tidyverse')
+santos_ex4<-read_table("https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt", col_names  = TRUE, 
+show_col_types= FALSE)
+genes<-c('ENSG00000197859'
+,'ENSG00000259336', 'ENSG00000182566','ENSG00000251877')
+genes %in% colnames(santos_ex4)
+```
+
+**5**
+Use the match( ) function to determine the column number corresponding to each of the genes in the previous question that is present in the
+data.
+
+```{R Assignment- 5}
+library('tidyverse')
+santos_ex5<-read_table("https://raw.githubusercontent.com/cseoighe/MA5108/main/narcancer.txt", col_names  = TRUE, 
+show_col_types= FALSE)
+genes<-c('ENSG00000197859'
+,'ENSG00000259336', 'ENSG00000182566','ENSG00000251877')
+match(genes,colnames(santos_ex5))
+```
+
+
+**6**
+
+
+Calculate the mean survival times of the non-surviving patients (OS =0).
+```{R Assignment- 6}
+mean(santos_data$OS.time[santos_data$OS==0])
+```
+
+
+**7**
+Calculate the median survival times of the non-surviving patients with low expression of either ENSG00000259336 or ENSG00000119242. Define low expression as an expression level that is below the first quartile (across all patients) of the expression of the gene. You can use the summary( ) function or the quantile( ) function to calculate the quartiles of the gene expression levels.
+
+
+```{R Assignment- 7}
+library('tidyverse')
+ summary(select(santos_data,ENSG00000259336,ENSG00000119242))
+ gene1_1stqu<-0
+ gene2_1stqu<-5.809
+ median(santos_data[santos_data$OS==0 & (santos_data$ENSG00000259336 <= gene1_1stqu | santos_data$ENSG00000119242 <= gene2_1stqu),] $OS.time)
+
+```
+
+
+**8**
+
+Use a Tidyverse function to create a new dataframe consisting only of the patients who are currently alive.
+```{R Assignment- 8}
+
+santos_data_alive <- filter(santos_data, OS==1)
+
+```
+
+
+**9**
+
+Use the appropriate Tidyverse function to create another dataframe, consisting of the survival status and times as well as the expression levels of the following genes for the patients who are currently alive: ENSG00000255043, ENSG00000255947, ENSG00000265559
+
+```{R Assignment- 9}
+
+santos_data_ex9<- select(santos_data_alive,OS,OS.time,ENSG00000255043, ENSG00000255947, ENSG00000265559)
+
+
+```
+
+
+**10**
+
+
+Order the dataframe you just created in decreasing expression levels of the gene ENSG00000265559.
+
+
+```{R Assignment- 10}
+
+arrange(santos_data_ex9,desc(ENSG00000265559))
+```
+
+
+**11**
+
+Use the appropriate Tidyverse function, together with ifelse, to add a column, called ratio, to the tibble you just created, consisting of the ratio of the expression of ENSG00000255043 and ENSG00000255947 when ENSG00000255947 is nonzero and NA otherwise.
+
+
+```{R Assignment- 11}
+santos_data_ex11 <-mutate(santos_data_ex9, ratio= ifelse(santos_data_ex9$ENSG00000255947!=0,ENSG00000255043 / ENSG00000255947, NA ))
+
+
+```
+
+**12**
+
+
+Now do everything in one go (i.e. in a single line of code, linked with the %>% operator, produce the output from the last question from the original dataframe). What is the maximum value of the ratio variable in the object you just created?
+
+
+```{R Assignment- 12}
+
+filter(santos_data,OS==1) %>%  select(,OS,OS.time,ENSG00000255043, ENSG00000255947, ENSG00000265559) %>% arrange(desc(ENSG00000265559)) %>% mutate(, ratio= ifelse(santos_data_ex9$ENSG00000255947!=0,ENSG00000255043 / ENSG00000255947, NA ))
+
+```
+
+
+
+**13**
+
+Use ggplot to make a density plot of the survival times for the original table (i.e. including the surviving and deceased individuals).
+
+
+```{R Assignment- 13}
+library('ggplot2')
+santos_data%>%select(OS.time) %>%ggplot(,x=survivaltimes)+ ( geom_density(SO.time=3) )
+```
+
+
+**14**
+
+```{R Assignment- 14}
+```
+
+
+**15**
+
+
+```{R Assignment- 15}
+```
+
+
+**16**
+
+```{R Assignment- 16}
+```
+
+
+**17**
+
+```{R Assignment- 17}

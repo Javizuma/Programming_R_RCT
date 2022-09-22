@@ -1,0 +1,255 @@
+---
+title: "Ankle Fractures Analysis"
+author: "J Newell"
+date: "Feb 2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+In this study 60 consecutive patients were randomised to one of two Treatments.  
+
+Patients on Treatment A (Cast Immobilisation) had below knee cast post ankle fracture fixation and remained non weight bearing for six weeks.  
+
+Patients on Treatment B (Early Mobilisation) had a back-slab for 2 weeks post fixation which was subsequently removed and, once the radiographs were deemed satisfactory, they were referred to the physiotherapy services for range of movement exercise while remaining non weight bearing.   
+
+Patients were followed up at 2,6 12, 24, and 36 weeks post fixation with their pain and functional status being measured by the American Orthopaedic Foot and Ankle Score (AOFAS) which ranges from 0 to 100 with 100 corresponding to fully functioning and pain-free status (i.e. higher is better).
+
+Use these data to investigate whether there is a meaningful difference in the typical 12 week AOFAS score between the treatments.
+
+```{r}
+library(infer)
+library(tolerance)
+library(ggridges)
+library(table1)
+library(viridis)
+library(tidyverse)
+```
+
+
+
+```{r}
+
+
+ankle.df <- read.csv("Ankle_Fractures.csv")
+glimpse(ankle.df)
+
+```
+
+```{r}
+
+ankle.df <- ankle.df %>% 
+              mutate(Treatment.Group = recode(Treatment, 
+                              A = "Cast",
+                              B = "Early Mobilisation"))
+
+head(ankle.df)
+
+```
+
+
+```{r}
+summary(ankle.df)
+```
+
+
+
+For this analysis we will start by comparing the AOFAS scores at week 12.
+
+You can filter put the week 12 data into a new data frame (called ankle.12.df) as follows:
+
+```{r}
+
+ankle.12.df <- ankle.df %>% filter(Time == 12)
+
+```
+
+
+# Summary Statistics
+
+
+```{r}
+
+ankle.12.df %>% group_by(Treatment.Group) %>% 
+  summarize(Mean=mean(AOFAS), 
+            SD= sd(AOFAS),
+            sample.size = n())
+
+```
+
+```{r}
+
+table1( ~AOFAS | Treatment.Group, data = ankle.12.df )
+
+```
+
+Boxplot
+
+```{r}
+ggplot(ankle.12.df, aes(x = Treatment.Group, y = AOFAS, colour=Treatment.Group)) +
+        geom_boxplot() + 
+  ggtitle("Boxplot of Week 12 AOFAS by Group") +
+  labs(title = "Boxplot of Week 12 AOFAS by Group",
+       subtitle = "(with mean symbol)",
+       y = "AOFAS Score", 
+       x = " ") +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="darkblue", fill="darkblue") +
+  theme(legend.position = "none")
+
+```
+
+
+Density plots with rainclouds
+
+```{r}
+
+ggplot(ankle.12.df, aes(x = AOFAS, 
+                      y = Treatment.Group, 
+                      fill = ..x..)) +
+  geom_density_ridges_gradient(jittered_points = TRUE, position = "raincloud",
+                                  alpha = 0.7, scale = 0.9) +
+  scale_fill_viridis(name = "AOFAS", option = "E") +
+  labs(x = "Week 12 AOFAS Score", y = "") +
+  labs(color='AOFAS') +
+  ggtitle('Week 12 AOFAS Density by Treatment')
+
+
+```
+
+
+Hypothesis Test for difference in the population mean
+
+
+```{r}
+
+t.test(AOFAS ~ Treatment.Group, data= ankle.12.df)
+
+```
+
+
+```{r}
+ankle.12.df %>% 
+t.test(AOFAS ~ Treatment.Group, data= .)
+```
+
+
+How can I instruct R to compare Early to Cast and not Cast to Early ?
+
+
+```{r}
+ankle.12.df %>%
+t_test(AOFAS ~ Treatment.Group,
+       order = c("Early Mobilisation", "Cast"))
+
+```
+
+```{r}
+
+table1( ~AOFAS | Treatment.Group, data = ankle.12.df )
+
+```
+
+t test by hand
+
+```{r}
+
+(81.6 - 61.5) / sqrt( (5.57^2 / 30) + (6.04^2 / 30) )
+
+
+```
+
+
+```{r}
+
+2* pt(13.39, df=57.61512, lower.tail = FALSE)
+
+```
+
+
+
+Is normality a concern ?
+
+
+
+1. Use the Median
+2. Use the bootstrap
+
+1. Use the Median
+
+## Test for the Difference in Population Medians
+
+
+```{r }
+
+wilcox.test(AOFAS ~ Treatment.Group, conf.int = TRUE, 
+            conf.level = 0.95, data= ankle.12.df)
+
+```
+
+2. Use Computational Inference
+
+
+## 95% Bootstrap CI for difference in means
+
+Take 1000 bootstrap samples from each Treatment.Group, calculate the differernce in the means for each pair, plot the results.
+
+```{r}
+
+ankle.12.boot <- ankle.12.df %>%
+  specify(response = AOFAS, explanatory = Treatment.Group) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "diff in means", 
+            order = c("Early Mobilisation", "Cast"))
+
+percentile_ci <- get_ci(ankle.12.boot)
+
+percentile_ci
+
+ankle.12.boot %>%  visualize() +  shade_confidence_interval(percentile_ci) +
+  labs(x="Difference (Early - Cast) in 12 Week Sample Mean AOFAS",
+       y= "Frequency",
+    title= "Ankle Fracture Analysis Bootstrap Distribution")
+
+```
+
+
+## Permutation test in R (difference in means)
+
+```{r}
+
+
+samp.diff <- ankle.12.df %>%
+specify(response = AOFAS, explanatory = Treatment.Group) %>%
+  calculate(stat = "diff in means", 
+order = c("Early Mobilisation","Cast"))
+
+# Simulate the diffs under the null hypothesis
+
+AOFAS.null.dist <- ankle.12.df %>%
+specify(response = AOFAS, explanatory = Treatment.Group) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, Group = "permute") %>%
+  calculate(stat = "diff in means", 
+order = c("Early Mobilisation","Cast"))
+
+AOFAS.null.dist %>% 
+    get_pvalue(obs_stat = samp.diff, direction = "two_sided")
+
+
+```
+# How often is the sample difference in means bigger than those generated by the 1000 permutations ?
+
+```{r}
+
+AOFAS.null.dist %>% 
+  ggplot(aes(stat)) + 
+  geom_histogram(colour="darkgreen", fill="darkgreen") +
+  geom_vline(data=samp.diff, aes(xintercept = stat), colour="red") +
+  labs(title= "Histogram of differences in AOFAS simulated under H0",
+       x= "Permuted Differences (Early-Cast)",
+       y="Frequency")
+
+
+```
+
+

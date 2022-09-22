@@ -1,0 +1,63 @@
+---
+title: "Sleep Trial Analysis"
+author: "J Newell"
+date: "17 October 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+A randomised controlled trial was undertaken to compare sleep deprivation (SD) over an eight week period between an intervention group using sleep therapy and a control group (i.e. usual-care). One hundred and thirty four adults were randomly assigned to either an intervention or usual-care group. The primary response variable was the improvement in sleep deprivation (averaged over a week) between baseline and follow-up at eight weeks where high values of SD represent a poorer outcome. 
+
+
+```{r}
+library(infer)
+library(tidyverse)
+library(tolerance)
+```
+
+
+
+```{r}
+
+sleep.df <- read.csv("Sleep_trial_data.csv")
+glimpse(sleep.df)
+```
+
+# Summary Statistics
+
+
+
+```{r}
+
+sleep.df %>% group_by(Group) %>% 
+  summarize(Mean=mean(Improvement.in.Sdep), 
+            SD= sd(Improvement.in.Sdep))
+
+```
+
+```{r}
+
+sleep.df %>% filter(Group %in% 'Treatment') %>% 
+  summarize(Treatment.Mean=mean(Improvement.in.Sdep), 
+            Treatment.SD= sd(Improvement.in.Sdep))
+
+```
+
+```{r}
+
+sleep.df %>% filter(Group %in% 'Control') %>% 
+  summarize(Control.Mean=mean(Improvement.in.Sdep), Control.SD= sd(Improvement.in.Sdep))
+
+```
+
+Summarise by group using _all function
+
+```{r}
+sleep.df %>%
+select(Group, Improvement.in.Sdep) %>%
+group_by(Group) %>%
+summarise_all(funs(mean, sd), na.rm = TRUE)
+
+```
+

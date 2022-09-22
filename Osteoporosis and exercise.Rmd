@@ -1,0 +1,186 @@
+---
+title: "Osteoporosis and exercise"
+author: "John Newell"
+date: "27 January 2020"
+output: html_document
+---
+
+
+```{r}
+library(infer)
+library(tidyverse)
+library(tolerance)
+```
+
+Read in the data
+```{r}
+
+osteo.df <- read.csv("OSTEOPOROSIS.csv")
+head(osteo.df)
+```
+
+**Project exercise**
+
+
+
+```{r}
+#Part1
+osteo.before.df <-osteo.df %>% filter(Time=='Before') 
+
+ggplot(osteo.before.df, aes(x = Regime, y = Flexibility)) +
+        geom_boxplot() + geom_jitter()+
+  ggtitle("Boxplot of mean differences between Control and Exercise groups before training") +
+  ylab("Difference") +
+  xlab("") +
+  geom_hline(yintercept=0, linetype="dashed",color = "green", size=1)
+
+#We can check that there is not a significant difference between the two groups
+
+t.test(Flexibility ~ Regime, data=osteo.before.df, variance.equal=TRUE)
+
+
+
+#Part2
+osteo.after.df <-osteo.df %>% filter(Time=='After') 
+
+ggplot(osteo.after.df, aes(x = Regime, y = Flexibility)) +
+        geom_boxplot() + geom_jitter()+
+  ggtitle("Boxplot of mean differences between Control and Exercise groups after training") +
+  ylab("Difference") +
+  xlab("") +
+  geom_hline(yintercept=0, linetype="dashed",color = "green", size=1)
+
+#We check that there is a significant difference after the training between the two groups 
+ 
+
+#Getting the means and their differences
+
+
+# mean for Flexibility in controls before
+mean_control_bf <- osteo.df %>% filter(Regime=='Control')%>% filter(Time=='Before')   %>%  
+summarize(Sample_Size = n(),
+MeanFlexCon=mean(Flexibility),
+SDFlexCon=sd(Flexibility))
+mean_control_bf
+
+
+# mean for Flexibility in Cases before
+mean_exercise_bf <- osteo.df %>% filter(Regime=='Exercise')%>% filter(Time=='Before')   %>%  
+summarize(Sample_Size = n(),
+MeanFlexCon=mean(Flexibility),
+SDFlexCon=sd(Flexibility))
+mean_exercise_bf
+
+ # mean for Flexibility in controls after training
+mean_control_af <-osteo.df %>% filter(Regime=='Control')%>% filter(Time=='After')   %>% 
+summarize(Sample_Size = n(),
+MeanFlexCon=mean(Flexibility),
+SDFlexCon=sd(Flexibility))
+
+mean_control_af
+
+ # mean for Flexibility in cases after training
+mean_exercise_af <- osteo.df %>% filter(Regime=='Exercise')%>% filter(Time=='After')   %>% 
+summarize(Sample_Size = n(),
+MeanFlexCon=mean(Flexibility),
+SDFlexCon=sd(Flexibility))
+mean_exercise_af
+
+
+#Difference in means after training 
+diff_means_ex = mean_exercise_af - mean_exercise_bf
+diff_means_ex
+#Difference in means before training 
+diff_means_co = mean_control_af - mean_control_bf
+diff_means_co
+#Part 3
+osteo.exercise1 <-osteo.df %>% filter(Regime=='Exercise') #
+
+osteo.exercise2<-osteo.exercise1 %>% select('Regime','Subject', 'Time','Flexibility') %>% pivot_wider(names_from = Time, values_from = Flexibility)
+
+ggplot(osteo.exercise2, aes(x = Before, 
+                     y = After)) +
+        geom_point(size=2) + 
+  scale_colour_manual(values = c("darkGrey", "Black")) +
+  ggtitle("Scatterplot of Flexibility in the Exercise group") +
+  ylab("Flexibility at Follow up") +
+  xlab("Flexibility at Baseline") +
+  geom_abline(slope=1, intercept=0) +
+  theme(text = element_text(size = 20)) +
+  theme_bw()
+  
+
+t.test(Flexibility ~ Time, data=osteo.exercise1, variance.equal=TRUE)
+
+
+#Part 4
+
+osteo.control1 <-osteo.df %>% filter(Regime=='Control') 
+
+
+
+osteo.control2<-osteo.control1 %>% select('Regime','Subject', 'Time','Flexibility') %>% pivot_wider(names_from = Time, values_from = Flexibility)
+
+ggplot(osteo.control2, aes(x = Before, 
+                     y = After)) +
+        geom_point(size=2) + 
+  scale_colour_manual(values = c("darkGrey", "Black")) +
+  ggtitle("Scatterplot of Flexibility in the Control group") +
+  ylab("Flexibility at Follow up") +
+  xlab("Flexibility at Baseline") +
+  geom_abline(slope=1, intercept=0) +
+  theme(text = element_text(size = 20)) +
+  theme_bw()
+  
+
+t.test(Flexibility ~ Time, data=osteo.control1, variance.equal=TRUE)
+
+
+
+#Part 5
+
+osteo.df1<-osteo.df %>% select('Regime','Subject', 'Time','Flexibility') %>% pivot_wider(names_from = Time, values_from = Flexibility)
+ggplot(osteo.df1, aes(x = Before, 
+                     y = After,
+                     colour=Regime,shape =Regime)) +
+        geom_point(size=2) + 
+  scale_colour_manual(values = c("darkGrey", "Black")) +
+  ggtitle("Scatterplot of Flexibility in both groups") +
+  ylab("Flexibility at Follow up") +
+  xlab("Flexibikity at Baseline") +
+  geom_abline(slope=1, intercept=0) +
+  theme(text = element_text(size = 20)) +
+  theme_bw()
+
+#We can check that the control group has not improved, while the Exercise group has shown an improvent represented in all the subjects being above the line. 
+
+
+#Part 6
+
+#Calculating the confidence intervals
+
+osteo.df.imp <- mutate(osteo.df1, Improvement= osteo.df1$After-osteo.df1$Before )
+
+osteo.boot.imp <- osteo.df.imp %>%
+  specify(response = Improvement, explanatory = Regime) %>% #specify what data
+  generate(reps = 1000, type = "bootstrap") %>% # replicate 1000 times for bootstrapping
+    calculate(stat = "diff in means", order = c("Exercise", "Control")) #calculate the mean
+
+percentile_ci_imp <- get_ci(osteo.boot.imp)
+
+percentile_ci_imp 
+
+## We can say with 95% that through the exercise there is a 4.6-9.6 point improvement in flexibility for osteoporosis patients.
+
+
+#Part 7
+```
+
+
+```{r}
+
+
+
+
+```
+

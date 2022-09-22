@@ -1,0 +1,201 @@
+---
+title: "Training Intervention Analysis"
+author: "J Newell"
+date: "17 October 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+## Context: Sports Science Study introduced in class.
+
+A sample of 18 full-time youth soccer players from a Youth Academy performed high intensity aerobic interval training and neuromuscular strength training twice-a-week over a 10-week in-season period in addition to usual regime of soccer training and matches. 
+
+Use the sample of data provided to see if there is evidence that the additional trianing component is of benefit compared to the aerobic interval training currently used.
+
+Scaffold for the analysis when the primary response variable is VO2 max.
+
+
+
+```{r}
+library(infer)
+library(tolerance)
+library(tidyverse)
+
+```
+
+## Read in the training intervention data
+
+Read in the data and have a look at the variable names and structure of the data.
+
+```{r}
+
+train.df <- read.csv("Training_intervention_data.csv")
+glimpse(train.df)
+```
+
+## Focus on the VO2 max response variables.
+
+
+## Summary Statistics
+
+
+
+```{r}
+train.df %>% select(VO2.max_Pre,VO2.max_Post) %>% summary()
+
+```
+
+## Mean and Standard Deviation
+
+```{r}
+
+train.df %>% select(VO2.max_Pre,VO2.max_Post) %>%
+            summarize(Pre_Mean=mean(VO2.max_Pre), Pre_SD= sd(VO2.max_Pre),
+                      Post_Mean=mean(VO2.max_Post), Post_SD= sd(VO2.max_Post))
+
+```
+
+## Scatterplot of Pre and Post with line of equality
+
+```{r}
+train.df %>% ggplot(aes(x = VO2.max_Pre, y = VO2.max_Post)) +
+        geom_point() + 
+  ggtitle("Scatterplot of Pre and Post VO2 Max") +
+  ylab("Post VO2 Max (units ?)") +
+  xlab("Post VO2 Max (units ?)") +
+  geom_abline(slope=1, intercept=0)
+  
+```
+
+
+## Calculate the Improvement
+
+Calculate a new variable and have a look at the data frame to see that it has been created.  High vlaues of VO2 max are good to Post-Pre is a better measure than Pre-Post to capture this.
+
+```{r}
+
+train.df <- train.df %>% mutate(Improvement = VO2.max_Post-VO2.max_Pre) %>%
+              glimpse()
+  
+
+
+```
+
+## Mean and Standard Deviation of Improvement
+
+```{r}
+
+train.df %>% select(Improvement) %>%
+            summarize(Imp_Mean=mean(Improvement), Imp_SD= sd(Improvement))
+
+```
+
+
+## Boxplot of Improvement
+
+```{r}
+
+
+train.df %>% ggplot(aes(x = "", y = Improvement)) +
+        geom_boxplot() + 
+  ggtitle("Boxplot of Improvment in VO2 Max") +
+  ylab("Improvment in VO2 Max (units ?)") +
+  xlab("") +
+  coord_flip()
+
+```
+
+95% Confidence Interval
+
+## First principles:
+
+### Lower 95% CI using summary statistics
+
+```{r}
+
+5.11 - qt(p=0.05/2, df=17, lower.tail = FALSE)*(2.25829/sqrt(18))
+
+```
+
+### Upper 95% CI using summary statistics
+
+```{r}
+
+5.11 + qt(p=0.05/2, df=17, lower.tail = FALSE)*(2.25829/sqrt(18))
+
+```
+
+## Using the t.test function
+
+```{r}
+
+train.df %>% select(Improvement) %>% t.test()
+
+```
+
+
+95% Bootstrap CI for the mean
+
+```{r}
+
+boot <- train.df %>%
+  specify(response = Improvement) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "mean")
+
+percentile_ci <- get_ci(boot)
+round(percentile_ci,2)
+
+```
+
+```{r}
+boot %>% visualize(endpoints = percentile_ci, direction = "between") +
+                   xlab("Bootstrap Mean") + ylab("Frequency")
+
+```
+
+95% CI for a population median using the Wilcoxon test 
+
+## Using the wilcox.test function
+
+```{r}
+
+wilcox.test(train.df$Improvement, conf.int=TRUE,          conf.level=0.95)
+
+```
+
+
+
+95% Bootstrap CI for the medan
+
+```{r}
+
+boot.median <- train.df %>%
+  specify(response = Improvement) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "median")
+
+percentile_ci_median <- get_ci(boot.median)
+round(percentile_ci_median,2)
+
+```
+
+```{r}
+boot.median %>% visualize(endpoints = percentile_ci_median, direction = "between") +
+                   xlab("Bootstrap Median") + ylab("Frequency")
+
+```
+
+
+95% Tolerance Interval
+
+```{r}
+
+normtol.int(train.df$Improvement, alpha = 0.05, P = 0.95)
+
+```
+
+
+
+Conclusion ??

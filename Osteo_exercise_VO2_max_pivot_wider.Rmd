@@ -1,0 +1,412 @@
+---
+title: "Osteoporosis and Exercise"
+author: "J Newell"
+date: "17 October 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+Osteoporosis is a fairly common condition in post-menopausal women. Exercise programmes have the potential to increase the well-being of osteoporosis sufferers.   
+
+A sample of 30 middle-aged osteoporotic women was randomised either to a twice-weekly physiotherapist-led exercise regime or to be a control.   Physiological assessments, including a VO2 Max test, were conducted on all women both before and after two months of the 'intervention' (i.e. exercise or control).
+ 
+Does such an exercise regime significantly improve, on average, the VO2Max of osteoporotic women over a two-month period of exercise over any 'natural' improvement of controls.
+
+Update the code and include the interpretation from the notes
+
+
+```{r}
+library(tolerance)
+library(beanplot)
+library(table1)
+library(viridis)
+library(ggridges)
+library(infer)
+library(tidyverse)
+
+```
+
+
+
+```{r}
+
+# Read the  data
+osteo.df <- read.csv("OSTEOPOROSIS.csv")
+glimpse(osteo.df)
+```
+
+# Design
+
+```{r}
+osteo.df %>% select(Subject, Time, Regime) %>% table()
+
+```
+
+There were 16 subjects assigned to Exercise Regime and 14 assigned to Control regime (i.e.n=30 in total) and each had their VO2Max, VO2max and FLexibility measured at 2 time points (i.e. Before and two months After).
+
+For this analyis we will start by comparing the improvement in VO2max.
+
+To start we will need to create an 'improvement' score in VO2max where positive values represent an improvement (i.e. After - Before).
+
+The data are in the wrong shape as the before vlaues are stacked on top of the after values where it would be easier to calculate the difference if the variables were side by side.
+
+One way to do this is to select the variables we want (i.e. Subject, Time, Regime, VO2max) and unstack them by the time variable:
+
+# Unstack the data 
+
+The `pivot_wider()` function is very handy and one you will usea lot to reshape data into the shape you need. 
+
+The function takes at least four arguments: 
+
+1. the data which is passed to it via the pipe `%>%` 
+2. a specification for which columns to gather -- here it is specified that we want to gather the values from Subject, Time, Regime and VO2max.
+3. a `names_from` argument which specifies the name of the column which will contains the column names of the original data frame that we want to spread the data across (i.e one column contaning the Before VO2max and one column the After VO2max)
+4. a `values_from` argument which specifies the name of the column which contains the values in the original data frame that you want to spread (VO2max in this case).
+
+```{r}
+
+osteo.df.Balance.wide <- osteo.df %>% 
+          select(Subject, Time, Regime, Balance) %>%
+          spread(key=Time, Balance)
+```
+
+Another way to do this is to use the `pivot_wider` function as follows:
+
+```{r}
+
+osteo.df.VO2max.wide <- osteo.df %>% 
+              select(Subject, Time, Regime, VO2max) %>%
+              pivot_wider(names_from = Time,
+              values_from = VO2max)
+
+```
+
+This can be further extended to unstack all the response variables, namely VO2Max, Balance and Flexibility.
+
+
+```{r}
+
+osteo.df.VO2max.wide <- osteo.df %>% 
+#              select(Subject, Time, Regime, VO2max) %>%
+              pivot_wider(names_from = Time,
+              values_from = VO2max:Flexibility)
+
+```
+
+
+Let's unpack the code .. it can be 'read' as follows : set up a new data frame called osteo.df.VO2max.wide by taking the osteo.df then selecting the variables needed and spreading the data over the time time points for VO2max variable.  To see what the result is have a look at the first few rows using the head function. 
+
+
+```{r}
+
+head(osteo.df.VO2max.wide)
+```
+
+Getting familiar with `pivot_wider()` takes some time plus trial and error. So don't be discouraged if you don't get what you want straight away. Once you've mastered this function, it will make it much easier to arrange your data frames as required. 
+
+After having done some transformations like this, it's worth checking that nothing went wrong. I often compare a few values in the transformed and original data frame to make sure everything went ok. 
+
+All looks good! You are now ready to do the analysis.
+
+Start by creating the Improvement variable for VO2_Max using the `mutate` function.
+
+
+```{r}
+
+osteo.df.VO2max.wide <- osteo.df.VO2max.wide %>% 
+        mutate(Improvement = VO2max_After - VO2max_Before)
+
+```
+
+
+# Summary Statistics
+
+The first step is to generate the necessary summary statistics to comapre the Improvment in VO2Max between the regimes.
+
+Note that we first use the `group_by` function to group the data by the two regimes (Control and Exercise) and then use `summarize()` to calculate the mean, median and standard deviation of Improvement for each regime as follows:
+
+```{r}
+
+osteo.df.VO2max.wide %>% group_by(Regime) %>% 
+  summarize(Mean=mean(Improvement),
+            Median=median(Improvement),
+            SD= sd(Improvement),
+            sample.size = n())
+
+```
+
+## Nicer table of summary statistics
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+table1( ~VO2max_Before + VO2max_After + Improvement | Regime, data = osteo.df.VO2max.wide )
+
+```
+
+
+# Graphical Summaries
+
+Scatterplot 
+
+```{r}
+
+osteo.df.VO2max.wide %>%
+  ggplot(aes(x = VO2max_Before, 
+             y = VO2max_After, 
+            color=Regime, shape = Regime)) +
+  geom_point(size = 3) + 
+  geom_abline(slope=1, intercept=0) +
+#  ylab("Post VO2max (ml/min/kg)") +
+#  xlab("Pre VO2max (ml/min/kg)") 
+  geom_abline(slope=1, intercept=0) +
+    labs(title = "Scatterplot of Pre and Post VO2max by Regime ",
+    subtitle = "(with line of equality)",
+       caption = "Created by John Newell", 
+       x = "Post VO2max (ml/min/kg)", y = "Pre VO2max (ml/min/kg)")
+  
+```
+
+
+Boxplot
+
+```{r}
+ggplot(osteo.df.VO2max.wide, aes(x = Regime, y = Improvement)) +
+        geom_boxplot() + 
+  ggtitle("Boxplot of Week 10 Improvement in VO2max by Regime") +
+  ylab("Improvement in VO2max (ml/min/kg)") +
+  geom_hline(yintercept=0, linetype="dashed",color = "green", size=1) +
+  theme(text = element_text(size=14))
+
+```
+
+## Fancier Boxplot
+
+
+```{r warning=FALSE, echo=FALSE}
+
+ggplot(osteo.df.VO2max.wide, aes(x = Regime, y = Improvement)) +
+  geom_boxplot(aes(color = Regime), width = 0.3, show.legend = FALSE) +
+    stat_summary(fun=mean, colour="red", geom="point", 
+               shape=18, size=3) +
+  geom_jitter(aes(color = Regime), alpha = 0.5, show.legend = FALSE, position = position_jitter(width = 0.2, seed = 0)) +
+  scale_color_manual(values = c("darkorange","purple")) +
+  theme_minimal() +
+  labs(main="Boxplot of Week 10 Improvement in VO2max by Regime",x = "Species",
+       y = "Improvement in VO2max (ml/min/kg)")
+
+
+```
+
+
+## Bean plot
+
+```{r}
+beanplot(Improvement ~ Regime, data = osteo.df.VO2max.wide, main = "Beanplot of Week 10 Improvement in VO2max by Regime", ylab="VO2max Improvement Score")
+
+```
+
+## Bean plot (side by side)
+
+```{r}
+beanplot(Improvement ~ Regime, data = osteo.df.VO2max.wide, 
+          side = "both", main = "Beanplot of Week 10 Improvement in VO2max by Regime", ylab="Improvement in VO2max (ml/min/kg)",
+ col = list("black", c("grey", "white")))
+
+```
+
+
+## Rain Cloud Plot
+
+ggplot(osteo.df.VO2max.wide, aes(x = Regime, y = Improvement)) +
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(osteo.df.VO2max.wide, aes(x = Improvement, 
+                      y = Regime, 
+                      fill = ..x..)) +
+  geom_density_ridges_gradient(jittered_points = TRUE, position = "raincloud",
+                                  alpha = 0.7, scale = 0.9) +
+  scale_fill_viridis(name = "Improvement in VO2Max", option = "E") +
+  labs(title = "Improvement in VO2Max by Regime",
+       x= "Improvement in VO2Max",
+       y="Regime") 
+
+
+```
+
+
+
+95% Confidence Interval for difference in the population mean
+
+```{r}
+
+t.test(Improvement ~ Regime, data= osteo.df.VO2max.wide)
+
+```
+
+
+# better version of t test
+
+```{r}
+
+osteo.df.VO2max.wide %>%
+t_test(Improvement ~ Regime, order = c("Exercise", "Control"), 
+       alternative = "two_sided",
+       mu=0,
+       conf_level = 0.95,
+       paired=FALSE,
+       var.equal=FALSE)
+
+```
+
+
+## Tolerance Interval
+
+
+##  Controls
+
+```{r}
+
+Controls.Improvement <- osteo.df.VO2max.wide %>% 
+  filter(Regime %in% 'Control') %>% select(Improvement) %>% as.data.frame()
+
+normtol.int(Controls.Improvement$Improvement, alpha = 0.05, P = 0.95, side = 2)
+
+```
+
+## Exercisers
+
+```{r}
+
+Exercisers.Improvement <- osteo.df.VO2max.wide %>% 
+  filter(Regime %in% 'Exercise') %>% select(Improvement) %>% as.data.frame()
+
+normtol.int(Exercisers.Improvement$Improvement, alpha = 0.05, P = 0.95, side = 2)
+```
+
+# 95% Bootstrap CI for difference in medians
+
+```{r}
+
+osteo.boot <- osteo.df.VO2max.wide %>%
+  specify(response = Improvement, explanatory = Regime) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "diff in medians", order = c("Exercise", "Control"))
+
+percentile_ci <- get_ci(osteo.boot)
+
+percentile_ci
+
+```
+
+
+
+
+# 95% Bootstrap CI for difference in means
+
+```{r}
+
+osteo.boot <- osteo.df.VO2max.wide %>%
+  specify(response = Improvement, explanatory = Regime) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "diff in means", order = c("Exercise", "Control"))
+
+percentile_ci <- get_ci(osteo.boot)
+
+percentile_ci
+
+```
+
+```{r}
+osteo.boot %>%
+  visualize() +
+  shade_confidence_interval(percentile_ci,
+                          color = "mediumaquamarine", 
+                          fill = "turquoise")
+
+```
+
+
+
+## Permutations test
+
+```{r}
+
+
+samp.diff <- osteo.df.VO2max.wide %>%
+specify(response = Improvement, explanatory = Regime) %>%
+  calculate(stat = "diff in means", order = c("Exercise", "Control"))
+
+# Simulate the diffs under the null hypothesis
+
+Improvement.null.dist <- osteo.df.VO2max.wide %>%
+specify(response = Improvement, explanatory = Regime) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, Group = "permute") %>%
+  calculate(stat = "diff in means", order = c("Exercise", "Control"))
+
+Improvement.null.dist %>% 
+    get_pvalue(obs_stat = samp.diff, direction = "two_sided")
+
+
+```
+
+```{r}
+
+Improvement.null.dist %>% 
+  ggplot(aes(stat)) + 
+  geom_histogram() +
+  geom_vline(data=samp.diff, aes(xintercept = stat), colour="red") +
+  ggtitle("Histogram of differences simulated under H0") +
+  xlab("Permuted Differences")
+
+
+```
+
+# How often is the sample difference in means bigger than those generated by the 1000 permutations ?
+
+```{r}
+
+sum(samp.diff$stat > Improvement.null.dist$stat )
+
+```
+
+```{r}
+
+1 - (sum(samp.diff$stat > Improvement.null.dist$stat )/1000)
+
+```
+
+
+
+```{r}
+
+osteo.df.VO2max.wide %>%
+specify(response = Improvement, explanatory = Regime) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, Group = "permute") %>%
+  calculate(stat = "t", order = c("Exercise", "Control")) %>%
+    visualize(method = "simulation") 
+
+# Theoretical t distribution
+# using t statistic
+
+osteo.df.VO2max.wide %>%
+specify(response = Improvement, explanatory = Regime) %>%
+  hypothesize(null = "independence") %>%
+#  generate(reps = 1000, Group = "permute") %>%
+  calculate(stat = "t", order = c("Exercise", "Control")) %>%
+    visualize(method = "theoretical")
+
+# Overlay theoretical distribution on top of randomised t-statistics
+osteo.df.VO2max.wide %>%
+specify(response = Improvement, explanatory = Regime) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, Group = "permute") %>%
+  calculate(stat = "t", order = c("Exercise", "Control")) %>%
+    visualize(method = "both")
+
+
+```

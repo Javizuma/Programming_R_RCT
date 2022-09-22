@@ -1,0 +1,130 @@
+---
+title: "Turin_Shroud_Analysis"
+author: "J Newell"
+date: "27 January 2019"
+output: html_document
+---
+
+## Turin Shroud Analysis
+
+Install the libraries needed. Note that the `infer`package is needed and you be using the sample statistics to infer values of the corresponding parameters of interest.
+
+```{r }
+
+library(infer)
+library(boot)
+library(tidyverse)
+library(ggpubr)
+
+```
+
+## Import the data
+
+The data from the 12 labs can be read into a dataframe (called turin.dat) as follows:
+
+```{r}
+turin.dat <- data.frame(
+  Carbon.Date= c(1359,1260,1344,1249,1155,1220,
+                  1205,1217,1228,1315,1311,1271))
+```
+
+## Summary statistics
+
+The mean, standard deviation and sample size can be calculated as follows:
+
+```{r}
+
+turin.dat %>% summarise(Mean.Date =mean(Carbon.Date),
+                       St.Dev.Date=sd(Carbon.Date),
+                       Sample.Size=length(Carbon.Date))
+```
+
+A (suitably labelled) boxplot of the results of the radiocarbon dating in each of the 12 labs is as follows:
+
+```{r}
+
+ggplot(turin.dat, aes(y=Carbon.Date, x="")) +
+  geom_boxplot() +   geom_jitter() +
+  xlab("") +
+  ylab("Radiocarbon dates")
+
+```
+
+A (rough) 95% COnfidence interval for the population mean can be calculated as:
+
+```{r}
+
+mean(turin.dat$Carbon.Date) - (2*sd(turin.dat$Carbon.Date)/sqrt(12))
+mean(turin.dat$Carbon.Date) + (2*sd(turin.dat$Carbon.Date)/sqrt(12))
+
+```
+
+Corrected confidence interval (adjusting for sample size)
+
+```{r}
+
+t.test(turin.dat$Carbon.Date, conf_level = 0.95, data = turin.dat)
+
+```
+
+
+95% CI for a population median using the Wilcoxon test 
+
+## Using the wilcox.test function
+
+```{r}
+
+wilcox.test(turin.dat$Carbon.Date, conf.int=TRUE,          conf.level=0.95)
+
+```
+
+
+95% Bootstrap CI for the mean
+
+
+```{r}
+
+boot <- turin.dat %>%
+  specify(response = Carbon.Date) %>%      #specify() is used to specify which columns in the data frame you're going to use
+  generate(reps = 1000, type = "bootstrap") %>% 
+  calculate(stat = "mean")
+
+percentile_ci <- get_ci(boot)
+round(percentile_ci,2)
+
+```
+
+```{r}
+boot %>% visualize(endpoints = percentile_ci, direction = "between") +
+                   xlab("Bootstrap Mean") + ylab("Frequency")
+
+```
+
+**Bootstrap for a Population mean**
+
+
+```{r}
+boot2 <- turin.dat %>% 
+    specify(response = Carbon.Date) %>% 
+     generate(reps = 1000, type = "bootstrap") %>%
+  calculate(stat = "median")
+```
+
+
+```{r}
+boot2 %>% visualize(endpoints = median, direction = "between") +
+  xlab("Bootstrap Median") + ylab("Frequency")
+
+```
+
+**t.test**
+
+
+```{r}
+turint_test <- turin.dat %>%
+     specify(response = Carbon.Date) %>% 
+     t.test(,conf.level=0.00000006, mu= 32)
+turint_test
+```
+
+The p-value serves as an indicator that shows us how confident we are in saying that the mean date of the turin clothe we get is not equal to 32, so it indicates how certain we are or not of the association.
